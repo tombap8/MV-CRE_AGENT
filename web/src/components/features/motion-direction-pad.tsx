@@ -1,6 +1,6 @@
 import { ChevronDownIcon } from "@/components/icons";
 
-export type Direction = "Pan Left" | "Pan Right" | "Tilt Up" | "Tilt Down";
+export type Direction = "Pan Left" | "Pan Right" | "Tilt Up" | "Tilt Down" | "None";
 
 interface MotionDirectionPadProps {
   value: Direction;
@@ -27,7 +27,13 @@ export function MotionDirectionPad({ value, onChange }: MotionDirectionPadProps)
       >
         <ChevronDownIcon className="h-4 w-4 rotate-90" />
       </DirectionButton>
-      <span className="h-9 w-9 rounded-full border border-hairline-strong" />
+      <DirectionButton
+        active={value === "None"}
+        onClick={() => onChange("None")}
+        label="방향 없음 (기본값)"
+      >
+        <span className="h-2 w-2 rounded-full bg-current" />
+      </DirectionButton>
       <DirectionButton
         active={value === "Pan Right"}
         onClick={() => onChange("Pan Right")}
