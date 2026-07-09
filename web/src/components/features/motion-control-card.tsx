@@ -7,7 +7,7 @@ import { MentionPromptInput } from "@/components/features/mention-prompt-input";
 import { ReferenceFileTray } from "@/components/features/reference-file-tray";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ALLOWED_IMAGE_TYPES } from "@/lib/atlas/config";
-import type { ReferenceFileItem, ReferenceKind, SceneMode } from "@/lib/atlas/types";
+import type { PromptPart, ReferenceFileItem, ReferenceKind, SceneMode } from "@/lib/atlas/types";
 
 interface MotionControlCardProps {
   mode: SceneMode;
@@ -31,8 +31,8 @@ interface MotionControlCardProps {
   onAddReferenceFiles: (kind: ReferenceKind, files: File[]) => void;
   onRemoveReferenceFile: (kind: ReferenceKind, id: string) => void;
 
-  scenePrompt: string;
-  onScenePromptChange: (value: string) => void;
+  promptParts: PromptPart[];
+  onPromptPartsChange: (parts: PromptPart[]) => void;
   onValidationError?: (message: string) => void;
 }
 
@@ -54,8 +54,8 @@ export function MotionControlCard({
   referenceAudios,
   onAddReferenceFiles,
   onRemoveReferenceFile,
-  scenePrompt,
-  onScenePromptChange,
+  promptParts,
+  onPromptPartsChange,
   onValidationError,
 }: MotionControlCardProps) {
   return (
@@ -141,8 +141,8 @@ export function MotionControlCard({
       <div className="flex flex-col gap-1.5">
         <span className="text-xs font-semibold uppercase tracking-wide text-steel">프롬프트</span>
         <MentionPromptInput
-          value={scenePrompt}
-          onChange={onScenePromptChange}
+          parts={promptParts}
+          onPartsChange={onPromptPartsChange}
           images={referenceImages}
           videos={referenceVideos}
           audios={referenceAudios}

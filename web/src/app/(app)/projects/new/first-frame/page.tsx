@@ -16,12 +16,14 @@ import {
   registerAndAwaitAsset,
   submitGeneration,
 } from "@/lib/atlas/client";
+import { resolvePromptParts } from "@/lib/atlas/mentions";
 import { composeFirstLastPrompt } from "@/lib/atlas/prompt";
 import { createReferenceFileItem, urlToFile } from "@/lib/atlas/reference";
 import type {
   GenerateRequest,
   GenerationConfig,
   GenerationTarget,
+  PromptPart,
   ReferenceFileItem,
   ReferenceKind,
   SceneEntry,
@@ -88,7 +90,7 @@ interface PanelState {
   direction: Direction;
   intensity: number;
   speed: number;
-  scenePrompt: string;
+  promptParts: PromptPart[];
   firstImage: ReferenceFileItem | null;
   lastImage: ReferenceFileItem | null;
   referenceImages: ReferenceFileItem[];
@@ -101,7 +103,7 @@ const INITIAL_PANEL_STATE: PanelState = {
   direction: "None",
   intensity: 5,
   speed: 5,
-  scenePrompt: "",
+  promptParts: [],
   firstImage: null,
   lastImage: null,
   referenceImages: [],
@@ -110,6 +112,18 @@ const INITIAL_PANEL_STATE: PanelState = {
 };
 
 async function buildGenerateRequest(panel: PanelState, config: GenerationConfig): Promise<GenerateRequest> {
+  const { text: resolvedPrompt, brokenParts } = resolvePromptParts(
+    panel.promptParts,
+    panel.referenceImages,
+    panel.referenceVideos,
+    panel.referenceAudios
+  );
+  if (brokenParts.length > 0) {
+    throw new AtlasClientError(
+      `프롬프트에 삭제된 파일을 참조하는 부분이 ${brokenParts.length}개 있습니다. "@"로 다시 첨부해주세요.`
+    );
+  }
+
   if (panel.mode === "first-last") {
     if (!panel.firstImage) {
       throw new AtlasClientError("첫 이미지를 업로드해주세요.");
@@ -119,7 +133,7 @@ async function buildGenerateRequest(panel: PanelState, config: GenerationConfig)
 
     return {
       mode: "first-last",
-      prompt: composeFirstLastPrompt(panel.scenePrompt, panel.direction, panel.intensity, panel.speed),
+      prompt: composeFirstLastPrompt(resolvedPrompt, panel.direction, panel.intensity, panel.speed),
       config,
       image,
       lastImage,
@@ -139,7 +153,7 @@ async function buildGenerateRequest(panel: PanelState, config: GenerationConfig)
 
   return {
     mode: "multi-reference",
-    prompt: panel.scenePrompt,
+    prompt: resolvedPrompt,
     config,
     referenceImages: referenceImages.length ? referenceImages : undefined,
     referenceVideos: referenceVideos.length ? referenceVideos : undefined,
@@ -155,6 +169,7 @@ export default function FirstFramePage() {
   const [toast, setToast] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [modalDismissed, setModalDismissed] = useState(false);
+  const [panelResetKey, setPanelResetKey] = useState(0);
 
   function patchPanel(patch: Partial<PanelState>) {
     setPanel((prev) => ({ ...prev, ...patch }));
@@ -214,6 +229,7 @@ export default function FirstFramePage() {
 
   function resetPanelInputs() {
     setPanel(INITIAL_PANEL_STATE);
+    setPanelResetKey((prev) => prev + 1);
   }
 
   function handleTargetChange(next: GenerationTarget) {
@@ -346,6 +362,7 @@ export default function FirstFramePage() {
 
       <div className="mt-6">
         <MotionControlCard
+          key={panelResetKey}
           mode={panel.mode}
           onModeChange={(mode) => patchPanel({ mode })}
           direction={panel.direction}
@@ -363,8 +380,8 @@ export default function FirstFramePage() {
           referenceAudios={panel.referenceAudios}
           onAddReferenceFiles={handleAddReferenceFiles}
           onRemoveReferenceFile={handleRemoveReferenceFile}
-          scenePrompt={panel.scenePrompt}
-          onScenePromptChange={(value) => patchPanel({ scenePrompt: value })}
+          promptParts={panel.promptParts}
+          onPromptPartsChange={(promptParts) => patchPanel({ promptParts })}
           onValidationError={setToast}
         />
 
