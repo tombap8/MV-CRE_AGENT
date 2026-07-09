@@ -1,0 +1,58 @@
+# ────────────────────────────────────────────────────────────
+# Seedance Local Studio — .gitignore
+# ────────────────────────────────────────────────────────────
+
+# ───── 보안: 절대 커밋하지 않는 파일 ─────
+# 실제 API 키 포함
+.env
+# 모든 .env 파일
+*.env
+
+# ───── 로컬 데이터 (개인 이력/영상) ─────
+# SQLite 생성 이력 (개인 데이터)
+history.db
+# 생성된 영상 파일 (용량 큼)
+outputs/
+
+# ───── Python ─────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+
+# ───── 가상 환경 ─────
+.venv/
+venv/
+env/
+ENV/
+.virtualenv/
+
+# ───── IDE / 에디터 ─────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ───── Streamlit ─────
+# Streamlit secrets (API 키가 담길 수 있음)
+.streamlit/secrets.toml
+
+# ───── 로그 ─────
+*.log
+logs/
