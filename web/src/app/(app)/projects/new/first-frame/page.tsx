@@ -166,6 +166,7 @@ export default function FirstFramePage() {
   const [target, setTarget] = useState<GenerationTarget>("existing");
   const [selectedSceneName, setSelectedSceneName] = useState<string>(SEED_SCENES[0].sceneName);
   const [panel, setPanel] = useState<PanelState>(INITIAL_PANEL_STATE);
+  const [generationConfig, setGenerationConfig] = useState<GenerationConfig>(DEFAULT_GENERATION_CONFIG);
   const [toast, setToast] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [modalDismissed, setModalDismissed] = useState(false);
@@ -298,7 +299,7 @@ export default function FirstFramePage() {
     updateScene(entryId, { jobStatus: "submitting", errorMessage: null, resultUrl: null, localPath: null });
 
     try {
-      const request = await buildGenerateRequest(panel, DEFAULT_GENERATION_CONFIG);
+      const request = await buildGenerateRequest(panel, generationConfig);
       const predictionId = await submitGeneration(request);
       updateScene(entryId, { jobStatus: "processing" });
 
@@ -383,6 +384,8 @@ export default function FirstFramePage() {
           promptParts={panel.promptParts}
           onPromptPartsChange={(promptParts) => patchPanel({ promptParts })}
           onValidationError={setToast}
+          generationConfig={generationConfig}
+          onGenerationConfigChange={setGenerationConfig}
         />
 
         <div className="mt-4 flex justify-end">

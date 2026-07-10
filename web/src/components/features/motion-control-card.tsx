@@ -2,12 +2,13 @@
 
 import { useRef, type ChangeEvent } from "react";
 import { CloseIcon } from "@/components/icons";
+import { GenerationOptionsPanel } from "@/components/features/generation-options-panel";
 import { MotionDirectionPad, type Direction } from "@/components/features/motion-direction-pad";
 import { MentionPromptInput } from "@/components/features/mention-prompt-input";
 import { ReferenceFileTray } from "@/components/features/reference-file-tray";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ALLOWED_IMAGE_TYPES } from "@/lib/atlas/config";
-import type { PromptPart, ReferenceFileItem, ReferenceKind, SceneMode } from "@/lib/atlas/types";
+import type { GenerationConfig, PromptPart, ReferenceFileItem, ReferenceKind, SceneMode } from "@/lib/atlas/types";
 
 interface MotionControlCardProps {
   mode: SceneMode;
@@ -34,6 +35,9 @@ interface MotionControlCardProps {
   promptParts: PromptPart[];
   onPromptPartsChange: (parts: PromptPart[]) => void;
   onValidationError?: (message: string) => void;
+
+  generationConfig: GenerationConfig;
+  onGenerationConfigChange: (config: GenerationConfig) => void;
 }
 
 export function MotionControlCard({
@@ -57,6 +61,8 @@ export function MotionControlCard({
   promptParts,
   onPromptPartsChange,
   onValidationError,
+  generationConfig,
+  onGenerationConfigChange,
 }: MotionControlCardProps) {
   return (
     <div className="flex flex-col gap-4 rounded-xxl border border-hairline p-5">
@@ -137,6 +143,8 @@ export function MotionControlCard({
           onValidationError={onValidationError}
         />
       )}
+
+      <GenerationOptionsPanel config={generationConfig} onChange={onGenerationConfigChange} />
 
       <div className="flex flex-col gap-1.5">
         <span className="text-xs font-semibold uppercase tracking-wide text-steel">프롬프트</span>
