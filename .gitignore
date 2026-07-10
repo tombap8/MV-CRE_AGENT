@@ -22,16 +22,16 @@ __pycache__/
 .Python
 *.egg
 *.egg-info/
-dist/
-build/
-eggs/
-parts/
-var/
-sdist/
-develop-eggs/
+/dist/
+/build/
+/eggs/
+/parts/
+/var/
+/sdist/
+/develop-eggs/
 .installed.cfg
-lib/
-lib64/
+/lib/
+/lib64/
 
 # ───── 가상 환경 ─────
 .venv/
