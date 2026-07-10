@@ -12,8 +12,8 @@ import {
   AtlasClientError,
   downloadGeneratedVideo,
   fileToBase64,
+  fileToDataUrl,
   pollGenerationUntilComplete,
-  registerAndAwaitAsset,
   submitGeneration,
 } from "@/lib/atlas/client";
 import { resolvePromptParts } from "@/lib/atlas/mentions";
@@ -25,7 +25,6 @@ import type {
   GenerationTarget,
   PromptPart,
   ReferenceFileItem,
-  ReferenceKind,
   SceneEntry,
   SceneMode,
 } from "@/lib/atlas/types";
@@ -39,50 +38,6 @@ const DEFAULT_GENERATION_CONFIG: GenerationConfig = {
   seed: -1,
 };
 
-const SEED_SCENES: SceneEntry[] = [
-  {
-    id: "ruins",
-    sceneName: "Scene 1: Ancient Ruins",
-    gradientClassName: "bg-gradient-to-br from-amber-200 via-orange-300 to-slate-500",
-    firstFrameImageUrl: "/sample-scenes/ancient-ruins.png",
-  },
-  {
-    id: "city",
-    sceneName: "Scene 2: Future City",
-    gradientClassName: "bg-gradient-to-br from-slate-700 via-slate-800 to-slate-950",
-    firstFrameImageUrl: "/sample-scenes/future-city.png",
-  },
-  {
-    id: "rooftop",
-    sceneName: "Scene 3: City Rooftop",
-    gradientClassName: "bg-gradient-to-br from-slate-600 via-indigo-700 to-slate-900",
-    firstFrameImageUrl: "/sample-scenes/city-rooftop.png",
-  },
-  {
-    id: "neon",
-    sceneName: "Scene 4: Neon Skyline",
-    gradientClassName: "bg-gradient-to-br from-purple-700 via-fuchsia-600 to-orange-400",
-    firstFrameImageUrl: "/sample-scenes/neon-skyline.png",
-  },
-  {
-    id: "crowd",
-    sceneName: "Scene 5: Concert Crowd",
-    gradientClassName: "bg-gradient-to-br from-amber-600 via-slate-700 to-slate-900",
-    firstFrameImageUrl: "/sample-scenes/concert-crowd.png",
-  },
-].map((seed) => ({
-  ...seed,
-  isStandalone: false,
-  jobStatus: "idle",
-  resultUrl: null,
-  localPath: null,
-  errorMessage: null,
-})) as SceneEntry[];
-
-function getSeedFirstFrameImageUrl(sceneName: string): string | null {
-  return SEED_SCENES.find((s) => s.sceneName === sceneName)?.firstFrameImageUrl ?? null;
-}
-
 const STANDALONE_GRADIENT = "bg-gradient-to-br from-slate-300 via-slate-400 to-slate-600";
 
 interface PanelState {
@@ -94,8 +49,6 @@ interface PanelState {
   firstImage: ReferenceFileItem | null;
   lastImage: ReferenceFileItem | null;
   referenceImages: ReferenceFileItem[];
-  referenceVideos: ReferenceFileItem[];
-  referenceAudios: ReferenceFileItem[];
 }
 
 const INITIAL_PANEL_STATE: PanelState = {
@@ -107,20 +60,13 @@ const INITIAL_PANEL_STATE: PanelState = {
   firstImage: null,
   lastImage: null,
   referenceImages: [],
-  referenceVideos: [],
-  referenceAudios: [],
 };
 
 async function buildGenerateRequest(panel: PanelState, config: GenerationConfig): Promise<GenerateRequest> {
-  const { text: resolvedPrompt, brokenParts } = resolvePromptParts(
-    panel.promptParts,
-    panel.referenceImages,
-    panel.referenceVideos,
-    panel.referenceAudios
-  );
+  const { text: resolvedPrompt, brokenParts } = resolvePromptParts(panel.promptParts, panel.referenceImages);
   if (brokenParts.length > 0) {
     throw new AtlasClientError(
-      `프롬프트에 삭제된 파일을 참조하는 부분이 ${brokenParts.length}개 있습니다. "@"로 다시 첨부해주세요.`
+      `프롬프트에 삭제된 이미지를 참조하는 부분이 ${brokenParts.length}개 있습니다. "@"로 다시 첨부해주세요.`
     );
   }
 
@@ -140,31 +86,24 @@ async function buildGenerateRequest(panel: PanelState, config: GenerationConfig)
     };
   }
 
-  const pendingAssets = [...panel.referenceVideos, ...panel.referenceAudios].filter(
-    (item) => item.assetStatus !== "active"
-  );
-  if (pendingAssets.length > 0) {
-    throw new AtlasClientError("비디오/오디오 레퍼런스가 아직 준비되지 않았습니다.");
+  if (panel.referenceImages.length === 0) {
+    throw new AtlasClientError("이미지를 1개 이상 첨부해주세요.");
   }
 
-  const referenceImages = await Promise.all(panel.referenceImages.map((item) => fileToBase64(item.file)));
-  const referenceVideos = panel.referenceVideos.map((item) => item.assetRef).filter((ref): ref is string => Boolean(ref));
-  const referenceAudios = panel.referenceAudios.map((item) => item.assetRef).filter((ref): ref is string => Boolean(ref));
+  const referenceImages = await Promise.all(panel.referenceImages.map((item) => fileToDataUrl(item.file)));
 
   return {
     mode: "multi-reference",
     prompt: resolvedPrompt,
     config,
-    referenceImages: referenceImages.length ? referenceImages : undefined,
-    referenceVideos: referenceVideos.length ? referenceVideos : undefined,
-    referenceAudios: referenceAudios.length ? referenceAudios : undefined,
+    referenceImages,
   };
 }
 
 export default function FirstFramePage() {
-  const [scenes, setScenes] = useState<SceneEntry[]>(SEED_SCENES);
+  const [scenes, setScenes] = useState<SceneEntry[]>([]);
   const [target, setTarget] = useState<GenerationTarget>("existing");
-  const [selectedSceneName, setSelectedSceneName] = useState<string>(SEED_SCENES[0].sceneName);
+  const [selectedSceneName, setSelectedSceneName] = useState<string>("");
   const [panel, setPanel] = useState<PanelState>(INITIAL_PANEL_STATE);
   const [generationConfig, setGenerationConfig] = useState<GenerationConfig>(DEFAULT_GENERATION_CONFIG);
   const [toast, setToast] = useState<string | null>(null);
@@ -176,56 +115,38 @@ export default function FirstFramePage() {
     setPanel((prev) => ({ ...prev, ...patch }));
   }
 
-  function updateScene(id: string, patch: Partial<SceneEntry>) {
+  function updateScene(id: string, patch: Partial<SceneEntry>): Promise<void> {
     setScenes((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
-  }
-
-  function handleAddReferenceFiles(kind: ReferenceKind, files: File[]) {
-    const newItems = files.map((file) => createReferenceFileItem(kind, file));
-
-    if (kind === "image") {
-      patchPanel({ referenceImages: [...panel.referenceImages, ...newItems] });
-      return;
-    }
-    if (kind === "video") {
-      patchPanel({ referenceVideos: [...panel.referenceVideos, ...newItems] });
-    } else {
-      patchPanel({ referenceAudios: [...panel.referenceAudios, ...newItems] });
-    }
-    newItems.forEach((item) => registerReferenceAsset(kind, item));
-  }
-
-  function updateReferenceItem(kind: "video" | "audio", itemId: string, patch: Partial<ReferenceFileItem>) {
-    setPanel((prev) => {
-      if (kind === "video") {
-        return { ...prev, referenceVideos: prev.referenceVideos.map((f) => (f.id === itemId ? { ...f, ...patch } : f)) };
-      }
-      return { ...prev, referenceAudios: prev.referenceAudios.map((f) => (f.id === itemId ? { ...f, ...patch } : f)) };
-    });
-  }
-
-  async function registerReferenceAsset(kind: "video" | "audio", item: ReferenceFileItem) {
-    try {
-      const assetRef = await registerAndAwaitAsset(kind, item.file, (status) =>
-        updateReferenceItem(kind, item.id, { assetStatus: status })
-      );
-      updateReferenceItem(kind, item.id, { assetStatus: "active", assetRef });
-    } catch (error) {
-      updateReferenceItem(kind, item.id, {
-        assetStatus: "error",
-        errorMessage: error instanceof Error ? error.message : "레퍼런스 등록에 실패했습니다.",
+    return fetch(`/api/scenes/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    })
+      .then(() => undefined)
+      .catch(() => {
+        // best-effort persistence — local state already reflects the change
       });
-    }
   }
 
-  function handleRemoveReferenceFile(kind: ReferenceKind, fileId: string) {
-    if (kind === "image") {
-      patchPanel({ referenceImages: panel.referenceImages.filter((item) => item.id !== fileId) });
-    } else if (kind === "video") {
-      patchPanel({ referenceVideos: panel.referenceVideos.filter((item) => item.id !== fileId) });
-    } else {
-      patchPanel({ referenceAudios: panel.referenceAudios.filter((item) => item.id !== fileId) });
-    }
+  function persistNewScene(scene: SceneEntry): Promise<void> {
+    return fetch("/api/scenes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(scene),
+    })
+      .then(() => undefined)
+      .catch(() => {
+        // best-effort persistence — local state already reflects the change
+      });
+  }
+
+  function handleAddReferenceFiles(files: File[]) {
+    const newItems = files.map((file) => createReferenceFileItem(file));
+    patchPanel({ referenceImages: [...panel.referenceImages, ...newItems] });
+  }
+
+  function handleRemoveReferenceFile(fileId: string) {
+    patchPanel({ referenceImages: panel.referenceImages.filter((item) => item.id !== fileId) });
   }
 
   function resetPanelInputs() {
@@ -241,17 +162,37 @@ export default function FirstFramePage() {
   }
 
   useEffect(() => {
-    if (target !== "existing") return;
+    let cancelled = false;
+    fetch("/api/scenes")
+      .then((res) => res.json())
+      .then((data: { scenes: SceneEntry[] }) => {
+        if (cancelled) return;
+        setScenes(data.scenes);
+        if (data.scenes.length > 0) {
+          setSelectedSceneName((prev) => prev || data.scenes[0].sceneName);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setToast("씬 목록을 불러오지 못했습니다.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-    const imageUrl = getSeedFirstFrameImageUrl(selectedSceneName);
-    if (!imageUrl) return;
+  const selectedSceneImageUrl =
+    target === "existing" ? scenes.find((s) => s.sceneName === selectedSceneName)?.firstFrameImageUrl ?? null : null;
 
+  useEffect(() => {
+    if (target !== "existing" || !selectedSceneImageUrl) return;
+
+    const imageUrl = selectedSceneImageUrl;
     let cancelled = false;
     (async () => {
       try {
         const file = await urlToFile(imageUrl, `${selectedSceneName}-first-frame.jpg`);
         if (cancelled) return;
-        const item = createReferenceFileItem("image", file);
+        const item = createReferenceFileItem(file);
         setPanel((prev) =>
           prev.mode === "first-last"
             ? { ...prev, firstImage: item, referenceImages: [] }
@@ -265,10 +206,21 @@ export default function FirstFramePage() {
     return () => {
       cancelled = true;
     };
-  }, [target, selectedSceneName, panel.mode]);
+  }, [target, selectedSceneName, panel.mode, selectedSceneImageUrl]);
+
+  const missingRequiredImage = panel.mode === "multi-reference" && panel.referenceImages.length === 0;
 
   async function handleGenerate() {
+    let request: GenerateRequest;
+    try {
+      request = await buildGenerateRequest(panel, generationConfig);
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "요청을 확인해주세요.");
+      return;
+    }
+
     let entryId: string;
+    let isNewStandalone = false;
 
     if (target === "existing") {
       const existing = scenes.find((s) => s.sceneName === selectedSceneName);
@@ -285,21 +237,25 @@ export default function FirstFramePage() {
         gradientClassName: STANDALONE_GRADIENT,
         firstFrameImageUrl: null,
         isStandalone: true,
-        jobStatus: "idle",
+        jobStatus: "submitting",
         resultUrl: null,
         localPath: null,
         errorMessage: null,
       };
       setScenes((prev) => [...prev, newEntry]);
       entryId = newEntry.id;
+      isNewStandalone = true;
+      // Await creation before any later PATCH, so the row exists before it's updated.
+      await persistNewScene(newEntry);
     }
 
     setModalDismissed(false);
     setActiveJobId(entryId);
-    updateScene(entryId, { jobStatus: "submitting", errorMessage: null, resultUrl: null, localPath: null });
+    if (!isNewStandalone) {
+      updateScene(entryId, { jobStatus: "submitting", errorMessage: null, resultUrl: null, localPath: null });
+    }
 
     try {
-      const request = await buildGenerateRequest(panel, generationConfig);
       const predictionId = await submitGeneration(request);
       updateScene(entryId, { jobStatus: "processing" });
 
@@ -307,10 +263,10 @@ export default function FirstFramePage() {
       const scene = scenes.find((s) => s.id === entryId);
       const localPath = await downloadGeneratedVideo(resultUrl, scene?.sceneName ?? "clip").catch(() => null);
 
-      updateScene(entryId, { jobStatus: "succeeded", resultUrl, localPath });
+      await updateScene(entryId, { jobStatus: "succeeded", resultUrl, localPath });
       resetPanelInputs();
     } catch (error) {
-      updateScene(entryId, {
+      await updateScene(entryId, {
         jobStatus: "failed",
         errorMessage: error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.",
       });
@@ -374,11 +330,9 @@ export default function FirstFramePage() {
           onSpeedChange={(speed) => patchPanel({ speed })}
           firstImage={panel.firstImage}
           lastImage={panel.lastImage}
-          onFirstImageChange={(file) => patchPanel({ firstImage: file ? createReferenceFileItem("image", file) : null })}
-          onLastImageChange={(file) => patchPanel({ lastImage: file ? createReferenceFileItem("image", file) : null })}
+          onFirstImageChange={(file) => patchPanel({ firstImage: file ? createReferenceFileItem(file) : null })}
+          onLastImageChange={(file) => patchPanel({ lastImage: file ? createReferenceFileItem(file) : null })}
           referenceImages={panel.referenceImages}
-          referenceVideos={panel.referenceVideos}
-          referenceAudios={panel.referenceAudios}
           onAddReferenceFiles={handleAddReferenceFiles}
           onRemoveReferenceFile={handleRemoveReferenceFile}
           promptParts={panel.promptParts}
@@ -388,8 +342,11 @@ export default function FirstFramePage() {
           onGenerationConfigChange={setGenerationConfig}
         />
 
-        <div className="mt-4 flex justify-end">
-          <Button variant="primary" onClick={handleGenerate} disabled={isGenerating}>
+        <div className="mt-4 flex items-center justify-end gap-3">
+          {missingRequiredImage && !isGenerating && (
+            <span className="text-xs text-steel">이미지를 1개 이상 첨부해주세요.</span>
+          )}
+          <Button variant="primary" onClick={handleGenerate} disabled={isGenerating || missingRequiredImage}>
             {isGenerating ? "생성 중..." : "영상 생성"}
           </Button>
         </div>

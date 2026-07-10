@@ -1,17 +1,9 @@
 export type SceneMode = "first-last" | "multi-reference";
 
-export type ReferenceKind = "image" | "video" | "audio";
-
-export type AssetStatus = "idle" | "uploading" | "registering" | "active" | "error";
-
 export interface ReferenceFileItem {
   id: string;
-  kind: ReferenceKind;
   file: File;
   previewUrl: string;
-  assetStatus: AssetStatus;
-  assetRef?: string;
-  errorMessage?: string;
 }
 
 export interface GenerationConfig {
@@ -36,8 +28,6 @@ export interface GenerateMultiReferenceRequest {
   prompt: string;
   config: GenerationConfig;
   referenceImages?: string[];
-  referenceVideos?: string[];
-  referenceAudios?: string[];
 }
 
 export type GenerateRequest = GenerateFirstLastRequest | GenerateMultiReferenceRequest;
@@ -52,9 +42,11 @@ export interface PredictionStatus {
   error: string | null;
 }
 
-export interface AssetRegisterResponse {
-  assetId: string;
-  status: string;
+export interface BalanceInfo {
+  value: number;
+  currency: string;
+  cash: number;
+  bonus: number;
 }
 
 export type SceneJobStatus = "idle" | "submitting" | "processing" | "succeeded" | "failed";
@@ -63,7 +55,7 @@ export type GenerationTarget = "existing" | "standalone";
 
 export type PromptPart =
   | { type: "text"; value: string }
-  | { type: "mention"; id: string; refId: string; kind: ReferenceKind };
+  | { type: "mention"; id: string; refId: string };
 
 export interface SceneEntry {
   id: string;

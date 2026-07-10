@@ -8,7 +8,7 @@ import { MentionPromptInput } from "@/components/features/mention-prompt-input";
 import { ReferenceFileTray } from "@/components/features/reference-file-tray";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ALLOWED_IMAGE_TYPES } from "@/lib/atlas/config";
-import type { GenerationConfig, PromptPart, ReferenceFileItem, ReferenceKind, SceneMode } from "@/lib/atlas/types";
+import type { GenerationConfig, PromptPart, ReferenceFileItem, SceneMode } from "@/lib/atlas/types";
 
 interface MotionControlCardProps {
   mode: SceneMode;
@@ -27,10 +27,8 @@ interface MotionControlCardProps {
   onLastImageChange: (file: File | null) => void;
 
   referenceImages: ReferenceFileItem[];
-  referenceVideos: ReferenceFileItem[];
-  referenceAudios: ReferenceFileItem[];
-  onAddReferenceFiles: (kind: ReferenceKind, files: File[]) => void;
-  onRemoveReferenceFile: (kind: ReferenceKind, id: string) => void;
+  onAddReferenceFiles: (files: File[]) => void;
+  onRemoveReferenceFile: (id: string) => void;
 
   promptParts: PromptPart[];
   onPromptPartsChange: (parts: PromptPart[]) => void;
@@ -54,8 +52,6 @@ export function MotionControlCard({
   onFirstImageChange,
   onLastImageChange,
   referenceImages,
-  referenceVideos,
-  referenceAudios,
   onAddReferenceFiles,
   onRemoveReferenceFile,
   promptParts,
@@ -136,8 +132,6 @@ export function MotionControlCard({
       ) : (
         <ReferenceFileTray
           images={referenceImages}
-          videos={referenceVideos}
-          audios={referenceAudios}
           onAddFiles={onAddReferenceFiles}
           onRemove={onRemoveReferenceFile}
           onValidationError={onValidationError}
@@ -152,12 +146,10 @@ export function MotionControlCard({
           parts={promptParts}
           onPartsChange={onPromptPartsChange}
           images={referenceImages}
-          videos={referenceVideos}
-          audios={referenceAudios}
           placeholder={
             mode === "first-last"
               ? "영상에 대한 설명을 입력하세요. (예: 캐릭터가 우아하게 춤을 춘다)"
-              : '프롬프트를 입력하세요. "@"를 입력해 첨부한 파일을 인용할 수 있습니다.'
+              : '프롬프트를 입력하세요. "@"를 입력해 첨부한 이미지를 인용할 수 있습니다.'
           }
         />
       </div>

@@ -31,8 +31,6 @@ export async function POST(request: Request) {
     } else if (body.mode === "multi-reference") {
       payload.model = MODEL_REFERENCE_TO_VIDEO;
       if (body.referenceImages?.length) payload.reference_images = body.referenceImages;
-      if (body.referenceVideos?.length) payload.reference_videos = body.referenceVideos;
-      if (body.referenceAudios?.length) payload.reference_audios = body.referenceAudios;
     } else {
       throw new AtlasApiError("알 수 없는 생성 모드입니다.", 400);
     }

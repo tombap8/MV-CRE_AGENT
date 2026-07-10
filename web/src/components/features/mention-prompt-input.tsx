@@ -2,11 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { liveMentionLabel } from "@/lib/atlas/mentions";
-import type { PromptPart, ReferenceFileItem, ReferenceKind } from "@/lib/atlas/types";
+import type { PromptPart, ReferenceFileItem } from "@/lib/atlas/types";
 
 interface MentionOption {
   label: string;
-  kind: ReferenceKind;
   fileName: string;
   refId: string;
 }
@@ -15,38 +14,21 @@ interface MentionPromptInputProps {
   parts: PromptPart[];
   onPartsChange: (parts: PromptPart[]) => void;
   images: ReferenceFileItem[];
-  videos: ReferenceFileItem[];
-  audios: ReferenceFileItem[];
   placeholder?: string;
 }
 
-const CHIP_BASE_CLASS =
-  "mx-0.5 inline-flex select-none items-center rounded-full px-2 py-0.5 text-sm font-medium";
-const CHIP_CLASS_BY_KIND: Record<ReferenceKind, string> = {
-  image: `${CHIP_BASE_CLASS} bg-lavender-light text-lavender-text`,
-  video: `${CHIP_BASE_CLASS} bg-coral-light text-coral-dark`,
-  audio: `${CHIP_BASE_CLASS} bg-teal-light text-brand-teal`,
-};
-const CHIP_CLASS_BROKEN = `${CHIP_BASE_CLASS} bg-brand-coral text-on-primary`;
+const CHIP_CLASS = "mx-0.5 inline-flex select-none items-center rounded-full bg-lavender-light px-2 py-0.5 text-sm font-medium text-lavender-text";
+const CHIP_CLASS_BROKEN = "mx-0.5 inline-flex select-none items-center rounded-full bg-brand-coral px-2 py-0.5 text-sm font-medium text-on-primary";
 
-function buildOptions(
-  images: ReferenceFileItem[],
-  videos: ReferenceFileItem[],
-  audios: ReferenceFileItem[]
-): MentionOption[] {
-  return [
-    ...images.map((item, i) => ({ label: `image ${i + 1}`, kind: "image" as const, fileName: item.file.name, refId: item.id })),
-    ...videos.map((item, i) => ({ label: `video ${i + 1}`, kind: "video" as const, fileName: item.file.name, refId: item.id })),
-    ...audios.map((item, i) => ({ label: `audio ${i + 1}`, kind: "audio" as const, fileName: item.file.name, refId: item.id })),
-  ];
+function buildOptions(images: ReferenceFileItem[]): MentionOption[] {
+  return images.map((item, i) => ({ label: `image ${i + 1}`, fileName: item.file.name, refId: item.id }));
 }
 
 function createChipElement(option: MentionOption): HTMLSpanElement {
   const chip = document.createElement("span");
   chip.contentEditable = "false";
   chip.dataset.refId = option.refId;
-  chip.dataset.kind = option.kind;
-  chip.className = CHIP_CLASS_BY_KIND[option.kind];
+  chip.className = CHIP_CLASS;
   chip.textContent = option.label;
   return chip;
 }
@@ -65,12 +47,7 @@ function readPartsFromElement(el: HTMLElement): PromptPart[] {
         parts.push({ type: "text", value: text });
         text = "";
       }
-      parts.push({
-        type: "mention",
-        id: crypto.randomUUID(),
-        refId: node.dataset.refId,
-        kind: node.dataset.kind as ReferenceKind,
-      });
+      parts.push({ type: "mention", id: crypto.randomUUID(), refId: node.dataset.refId });
       return;
     }
     // stray elements (e.g. a browser-inserted <br>) - fall back to their text content
@@ -90,7 +67,6 @@ function renderPartsIntoElement(el: HTMLElement, parts: PromptPart[]) {
       const chip = document.createElement("span");
       chip.contentEditable = "false";
       chip.dataset.refId = part.refId;
-      chip.dataset.kind = part.kind;
       el.appendChild(chip);
     }
   }
@@ -118,29 +94,21 @@ function getTriggerInfo(container: HTMLElement): TriggerInfo | null {
   return { textNode: node as Text, atIndex, caretOffset: offset };
 }
 
-export function MentionPromptInput({
-  parts,
-  onPartsChange,
-  images,
-  videos,
-  audios,
-  placeholder,
-}: MentionPromptInputProps) {
+export function MentionPromptInput({ parts, onPartsChange, images, placeholder }: MentionPromptInputProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [mentionOpen, setMentionOpen] = useState(false);
-  const options = buildOptions(images, videos, audios);
+  const options = buildOptions(images);
 
   const updateChipLabels = useCallback(() => {
     const el = editorRef.current;
     if (!el) return;
     el.querySelectorAll<HTMLElement>("[data-ref-id]").forEach((chip) => {
-      const kind = chip.dataset.kind as ReferenceKind;
       const refId = chip.dataset.refId!;
-      const { label, broken } = liveMentionLabel({ kind, refId }, images, videos, audios);
+      const { label, broken } = liveMentionLabel({ refId }, images);
       chip.textContent = label;
-      chip.className = broken ? CHIP_CLASS_BROKEN : CHIP_CLASS_BY_KIND[kind];
+      chip.className = broken ? CHIP_CLASS_BROKEN : CHIP_CLASS;
     });
-  }, [images, videos, audios]);
+  }, [images]);
 
   useEffect(() => {
     const el = editorRef.current;
@@ -218,7 +186,7 @@ export function MentionPromptInput({
         onKeyDown={handleKeyDown}
         onBlur={() => setMentionOpen(false)}
         data-placeholder={
-          placeholder ?? '프롬프트를 입력하세요. "@"를 입력해 첨부한 파일을 인용할 수 있습니다.'
+          placeholder ?? '프롬프트를 입력하세요. "@"를 입력해 첨부한 이미지를 인용할 수 있습니다.'
         }
         className="min-h-28 w-full resize-none whitespace-pre-wrap rounded-lg border border-hairline-strong bg-canvas p-3 text-sm text-ink outline-none empty:before:text-steel empty:before:content-[attr(data-placeholder)] focus:border-brand-blue"
       />

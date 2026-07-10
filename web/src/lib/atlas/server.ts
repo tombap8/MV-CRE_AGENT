@@ -54,7 +54,7 @@ export async function handleAtlasErrorResponse(response: Response): Promise<neve
     throw new AtlasApiError(`요청 오류가 발생했습니다. (코드: ${code}) 상세: ${detail}`, code);
   }
   throw new AtlasApiError(
-    `Atlas Cloud 서버 오류가 발생했습니다. (코드: ${code}) 잠시 후 다시 시도해주세요.`,
+    `Atlas Cloud 서버 오류가 발생했습니다. (코드: ${code}) 상세: ${detail || "(응답 본문 없음)"} 잠시 후 다시 시도해주세요.`,
     code
   );
 }

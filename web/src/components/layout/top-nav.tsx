@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MusicNoteIcon } from "@/components/icons";
+import { BalanceBadge } from "@/components/layout/balance-badge";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Home" },
@@ -42,7 +43,10 @@ export function TopNav() {
           })}
         </nav>
 
-        <Avatar initials="U" />
+        <div className="flex items-center gap-3">
+          <BalanceBadge />
+          <Avatar initials="U" />
+        </div>
       </div>
     </header>
   );

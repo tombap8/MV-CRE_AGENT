@@ -1,12 +1,10 @@
-import type { ReferenceFileItem, ReferenceKind } from "@/lib/atlas/types";
+import type { ReferenceFileItem } from "@/lib/atlas/types";
 
-export function createReferenceFileItem(kind: ReferenceKind, file: File): ReferenceFileItem {
+export function createReferenceFileItem(file: File): ReferenceFileItem {
   return {
     id: crypto.randomUUID(),
-    kind,
     file,
-    previewUrl: kind === "image" ? URL.createObjectURL(file) : "",
-    assetStatus: kind === "image" ? "active" : "idle",
+    previewUrl: URL.createObjectURL(file),
   };
 }
 
