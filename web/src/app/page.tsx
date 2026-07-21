@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/button";
 import { FeatureCard } from "@/components/ui/feature-card";
 import { GoogleIcon, KakaoIcon, MusicNoteIcon } from "@/components/icons";
 
@@ -42,8 +42,8 @@ export default function OnboardingPage() {
         </p>
 
         <div className="mt-8 flex w-full max-w-xs flex-col gap-3">
-          <Button icon={<GoogleIcon />}>Login Google</Button>
-          <Button icon={<KakaoIcon />}>Login Kakao</Button>
+          <LinkButton href="/dashboard" icon={<GoogleIcon />}>Login Google</LinkButton>
+          <LinkButton href="/dashboard" icon={<KakaoIcon />}>Login Kakao</LinkButton>
         </div>
 
         <div className="mt-16 grid w-full grid-cols-1 gap-5 sm:grid-cols-3">
